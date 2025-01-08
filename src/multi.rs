@@ -1,17 +1,20 @@
-use std::fmt::{Debug, Formatter};
-use std::io;
-use std::sync::{Arc, RwLock};
-use std::thread::panicking;
 #[cfg(not(target_arch = "wasm32"))]
 use std::time::Instant;
 
-use crate::draw_target::{
-    visual_line_count, DrawState, DrawStateWrapper, LineAdjust, LineType, ProgressDrawTarget,
-    VisualLines,
-};
-use crate::progress_bar::ProgressBar;
 #[cfg(target_arch = "wasm32")]
 use web_time::Instant;
+use {
+    crate::{
+        draw_target::{visual_line_count, DrawState, DrawStateWrapper, LineAdjust, LineType, ProgressDrawTarget, VisualLines},
+        progress_bar::ProgressBar,
+    },
+    std::{
+        fmt::{Debug, Formatter},
+        io,
+        sync::{Arc, RwLock},
+        thread::panicking,
+    },
+};
 
 /// Manages multiple progress bars from different threads
 #[derive(Debug, Clone)]
@@ -138,7 +141,7 @@ impl MultiProgress {
     /// Inserting a progress bar that is already a member of the [`MultiProgress`]
     /// will have no effect.
     pub fn insert_after(&self, after: &ProgressBar, pb: ProgressBar) -> ProgressBar {
-        self.internalize(InsertLocation::After(after.index().unwrap()), pb)
+        self.internalize(InsertLocation::After(after.index().unwrap_or_default()), pb)
     }
 
     /// Removes a progress bar.
@@ -265,12 +268,7 @@ impl MultiState {
         self.remove_idx(index);
     }
 
-    pub(crate) fn draw(
-        &mut self,
-        mut force_draw: bool,
-        extra_lines: Option<Vec<LineType>>,
-        now: Instant,
-    ) -> io::Result<()> {
+    pub(crate) fn draw(&mut self, mut force_draw: bool, extra_lines: Option<Vec<LineType>>, now: Instant) -> io::Result<()> {
         if panicking() {
             return Ok(());
         }
@@ -281,10 +279,7 @@ impl MultiState {
         };
 
         // Assumption: if extra_lines is not None, then it has at least one line
-        debug_assert_eq!(
-            extra_lines.is_some(),
-            extra_lines.as_ref().map(Vec::len).unwrap_or_default() > 0
-        );
+        debug_assert_eq!(extra_lines.is_some(), extra_lines.as_ref().map(Vec::len).unwrap_or_default() > 0);
 
         let mut reap_indices = vec![];
 
@@ -425,11 +420,7 @@ impl MultiState {
             }
         }
 
-        assert_eq!(
-            self.len(),
-            self.ordering.len(),
-            "Draw state is inconsistent"
-        );
+        assert_eq!(self.len(), self.ordering.len(), "Draw state is inconsistent");
 
         idx
     }
@@ -455,11 +446,7 @@ impl MultiState {
         self.free_set.push(idx);
         self.ordering.retain(|&x| x != idx);
 
-        assert_eq!(
-            self.len(),
-            self.ordering.len(),
-            "Draw state is inconsistent"
-        );
+        assert_eq!(self.len(), self.ordering.len(), "Draw state is inconsistent");
     }
 
     fn len(&self) -> usize {
